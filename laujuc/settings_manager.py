@@ -29,7 +29,7 @@ class LaujucSettings:
     activation_valid_until: str = ""
     known_keys: list[str] = field(default_factory=list)
     theme: str = "dark"
-    activation_session_minutes: int = 240
+    activation_session_minutes: int = 10080
 
 
 class SettingsManager:
@@ -87,7 +87,7 @@ class SettingsManager:
             "activation_valid_until": data.get("activation_valid_until", ""),
             "known_keys": known_keys,
             "theme": data.get("theme", "dark"),
-            "activation_session_minutes": int(data.get("activation_session_minutes", 240)),
+            "activation_session_minutes": int(data.get("activation_session_minutes", 10080)),
         }
         return LaujucSettings(**normalized)
 
@@ -119,12 +119,18 @@ class SettingsManager:
         return datetime.now(tz=timezone.utc) < expires_at
 
     def export_keys(self, settings: LaujucSettings, target: Path) -> None:
-        payload = {"known_keys": settings.known_keys}
+        payload = {
+            "known_keys": settings.known_keys,
+            "activation_session_minutes": settings.activation_session_minutes,
+        }
         target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def import_keys(self, settings: LaujucSettings, source: Path) -> None:
         payload = json.loads(source.read_text(encoding="utf-8"))
         keys = payload.get("known_keys", [])
+        session_minutes = payload.get("activation_session_minutes")
         for key in keys:
             if key not in settings.known_keys:
                 settings.known_keys.append(key)
+        if isinstance(session_minutes, int):
+            settings.activation_session_minutes = session_minutes

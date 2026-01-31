@@ -375,6 +375,7 @@ class LaujucWindow(QtWidgets.QWidget):
 
     def _build_scenarios_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
+        widget.setAutoFillBackground(True)
         layout = QtWidgets.QVBoxLayout(widget)
         layout.setSpacing(16)
 
@@ -407,6 +408,7 @@ class LaujucWindow(QtWidgets.QWidget):
 
     def _build_profiles_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
+        widget.setAutoFillBackground(True)
         layout = QtWidgets.QVBoxLayout(widget)
         layout.setSpacing(16)
 
@@ -435,6 +437,7 @@ class LaujucWindow(QtWidgets.QWidget):
 
     def _build_settings_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
+        widget.setAutoFillBackground(True)
         layout = QtWidgets.QVBoxLayout(widget)
         layout.setSpacing(18)
 
@@ -530,6 +533,7 @@ class LaujucWindow(QtWidgets.QWidget):
 
     def _build_docs_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
+        widget.setAutoFillBackground(True)
         layout = QtWidgets.QVBoxLayout(widget)
 
         self.docs_browser = QtWidgets.QTextBrowser()
@@ -580,6 +584,7 @@ class LaujucWindow(QtWidgets.QWidget):
             self,
             activated=self._toggle_visibility,
         )
+        self.toggle_shortcut.setContext(QtCore.Qt.ApplicationShortcut)
 
     def _toggle_visibility(self) -> None:
         if self.isVisible():

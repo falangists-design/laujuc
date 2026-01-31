@@ -40,6 +40,16 @@ class KeygenWindow(QtWidgets.QWidget):
         self.key_output.setPlaceholderText("Новый ключ появится здесь")
         layout.addWidget(self.key_output)
 
+        duration_row = QtWidgets.QHBoxLayout()
+        duration_row.addWidget(QtWidgets.QLabel("Срок действия ключа"))
+        self.duration_combo = QtWidgets.QComboBox()
+        self.duration_combo.addItem("7 дней", 7 * 24 * 60)
+        self.duration_combo.addItem("30 дней", 30 * 24 * 60)
+        self.duration_combo.setCurrentIndex(0)
+        duration_row.addWidget(self.duration_combo)
+        duration_row.addStretch()
+        layout.addLayout(duration_row)
+
         button_row = QtWidgets.QHBoxLayout()
         self.generate_button = AnimatedButton("Сгенерировать ключ")
         self.export_button = QtWidgets.QPushButton("Экспортировать JSON")
@@ -58,6 +68,7 @@ class KeygenWindow(QtWidgets.QWidget):
         self.copy_button.clicked.connect(self._copy_key)
 
     def _generate_key(self) -> None:
+        self.settings.activation_session_minutes = int(self.duration_combo.currentData())
         key = self.manager.generate_one_time_key(self.settings)
         self.manager.save(self.settings)
         self.key_output.setText(key)
@@ -67,6 +78,7 @@ class KeygenWindow(QtWidgets.QWidget):
         if not self.key_output.text():
             self._show_notification("Сначала сгенерируйте ключ.", False)
             return
+        self.settings.activation_session_minutes = int(self.duration_combo.currentData())
         path, _ = QtWidgets.QFileDialog.getSaveFileName(
             self, "Export Keys", "laujuc_keys.json"
         )
