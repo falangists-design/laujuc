@@ -341,14 +341,6 @@ class LaujucWindow(QtWidgets.QWidget):
         self.tab_widget.addTab(self._build_settings_tab(), "Настройки")
         self.tab_widget.addTab(self._build_docs_tab(), "Документация")
         content_layout.addWidget(self.tab_widget)
-        self.tab_widget.currentChanged.connect(self._animate_tabs)
-
-        self._tab_opacity = QtWidgets.QGraphicsOpacityEffect(self.tab_widget)
-        self.tab_widget.setGraphicsEffect(self._tab_opacity)
-        self._tab_animation = QtCore.QPropertyAnimation(self._tab_opacity, b"opacity")
-        self._tab_animation.setDuration(220)
-        self._tab_animation.setStartValue(0.6)
-        self._tab_animation.setEndValue(1.0)
 
         self.notification_bar = NotificationBar()
         content_layout.addWidget(self.notification_bar)
@@ -707,10 +699,6 @@ class LaujucWindow(QtWidgets.QWidget):
         self.session_timer_label.setText(f"Session: {hours:02d}:{minutes:02d}:{seconds:02d}")
         self._update_activation_timer()
 
-    def _animate_tabs(self) -> None:
-        self._tab_animation.stop()
-        self._tab_animation.start()
-
     def _collect_settings(self) -> LaujucSettings:
         return LaujucSettings(
             hotkey_toggle=self.hotkey_input.text(),
@@ -908,6 +896,21 @@ def apply_theme(app: QtWidgets.QApplication, theme: str = "dark") -> None:
         }}
         QComboBox::drop-down {{
             border: none;
+        }}
+        QComboBox::down-arrow {{
+            image: none;
+            border: none;
+        }}
+        QComboBox QAbstractItemView {{
+            background-color: {surface};
+            color: {text};
+            border: 1px solid rgba(0, 128, 255, 0.3);
+            selection-background-color: rgba(0, 128, 255, 0.2);
+            selection-color: {text};
+            outline: none;
+        }}
+        QTabWidget::tab-bar {{
+            left: 0px;
         }}
         QCheckBox {{
             spacing: 6px;

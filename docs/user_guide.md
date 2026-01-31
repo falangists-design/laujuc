@@ -34,3 +34,7 @@ profile, and run automation flows with a modern UI.
 - Generate activation keys using the separate `laujuc keygen` application.
 - Import the key file in the launcher or settings, then enter the key to unlock the UI.
 - Session timer shows remaining activation time.
+
+## Packaging note (Windows)
+- If a packaged build shows a missing DLL ordinal error, rebuild with PyInstaller using
+  `--collect-all PySide6 --collect-all shiboken6` to ensure Qt runtime libraries are bundled.
