@@ -35,9 +35,11 @@ Use PyInstaller to build a standalone executable.
 ```bash
 pip install pyinstaller
 pyinstaller --onefile --noconsole --name laujuc --icon laujuc/resources/laujuc_icon.svg \
-  --collect-all PySide6 --collect-all shiboken6 app.py
+  --clean --noconfirm --collect-all PySide6 --collect-all shiboken6 \
+  --collect-submodules PySide6 --collect-submodules shiboken6 app.py
 pyinstaller --onefile --noconsole --name laujuc-keygen --icon laujuc/resources/laujuc_icon.svg \
-  --collect-all PySide6 --collect-all shiboken6 keygen_app.py
+  --clean --noconfirm --collect-all PySide6 --collect-all shiboken6 \
+  --collect-submodules PySide6 --collect-submodules shiboken6 keygen_app.py
 ```
 
 ## Project layout

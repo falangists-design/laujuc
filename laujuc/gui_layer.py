@@ -336,6 +336,8 @@ class LaujucWindow(QtWidgets.QWidget):
 
         self.tab_widget = QtWidgets.QTabWidget()
         self.tab_widget.setObjectName("tabWidget")
+        self.tab_widget.setDocumentMode(True)
+        self.tab_widget.tabBar().setDrawBase(False)
         self.tab_widget.addTab(self._build_scenarios_tab(), "Сценарии")
         self.tab_widget.addTab(self._build_profiles_tab(), "Профили")
         self.tab_widget.addTab(self._build_settings_tab(), "Настройки")
@@ -777,6 +779,9 @@ def apply_theme(app: QtWidgets.QApplication, theme: str = "dark") -> None:
             background-color: {bg};
             border-radius: 16px;
         }}
+        QFrame {{
+            background-color: transparent;
+        }}
         #titleBar {{
             background-color: {surface};
             border-top-left-radius: 16px;
@@ -839,6 +844,13 @@ def apply_theme(app: QtWidgets.QApplication, theme: str = "dark") -> None:
         QTabWidget {{
             background-color: {bg};
         }}
+        QStackedWidget {{
+            background-color: {surface};
+            border-radius: 10px;
+        }}
+        QTabWidget QWidget {{
+            background-color: {surface};
+        }}
         QTabBar {{
             background-color: transparent;
         }}
@@ -896,6 +908,9 @@ def apply_theme(app: QtWidgets.QApplication, theme: str = "dark") -> None:
         }}
         QComboBox::drop-down {{
             border: none;
+        }}
+        QComboBox:focus {{
+            background-color: {surface};
         }}
         QComboBox::down-arrow {{
             image: none;

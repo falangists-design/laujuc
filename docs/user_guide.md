@@ -37,4 +37,5 @@ profile, and run automation flows with a modern UI.
 
 ## Packaging note (Windows)
 - If a packaged build shows a missing DLL ordinal error, rebuild with PyInstaller using
-  `--collect-all PySide6 --collect-all shiboken6` to ensure Qt runtime libraries are bundled.
+  `--collect-all PySide6 --collect-all shiboken6 --collect-submodules PySide6 --collect-submodules shiboken6`
+  to ensure Qt runtime libraries are bundled.
