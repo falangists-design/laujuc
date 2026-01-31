@@ -1,0 +1,18 @@
+[project]
+name = "laujuc"
+version = "0.1.0"
+description = "Input automation framework for QA and accessibility with a modern UI demo."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Laujuc Contributors" }]
+license = { text = "MIT" }
+
+dependencies = [
+  "PySide6>=6.6",
+]
+
+[project.scripts]
+laujuc = "app:main"
+
+[tool.ruff]
+line-length = 100
