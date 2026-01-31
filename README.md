@@ -39,8 +39,9 @@ pyinstaller --onefile --noconsole --name laujuc --icon laujuc/resources/laujuc_i
 pyinstaller --onefile --noconsole --name laujuc-keygen --icon laujuc/resources/laujuc_icon.ico --clean --noconfirm --collect-all PySide6 --collect-all shiboken6 --collect-submodules PySide6 --collect-submodules shiboken6 keygen_app.py
 ```
 
-If you do not want to generate a `.ico`, remove the `--icon ...` flag entirely (PyInstaller
-cannot use the SVG directly on Windows).
+If `tools\\generate_icon.bat` says `magick` is not found, install ImageMagick or skip the
+icon step. You can also remove the `--icon ...` flag entirely (PyInstaller cannot use the
+SVG directly on Windows).
 
 ## Project layout
 

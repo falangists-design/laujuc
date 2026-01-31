@@ -41,4 +41,5 @@ profile, and run automation flows with a modern UI.
   `--collect-all PySide6 --collect-all shiboken6 --collect-submodules PySide6 --collect-submodules shiboken6`
   to ensure Qt runtime libraries are bundled.
 - Generate a Windows `.ico` from the SVG using `tools\\generate_icon.bat` before packaging to avoid Pillow SVG conversion errors.
+- If `magick` is missing, install ImageMagick or skip the icon step.
 - If you skip icon generation, remove the `--icon` flag from the PyInstaller command (SVG is not supported as a Windows icon).
