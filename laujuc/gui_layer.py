@@ -22,9 +22,91 @@ from laujuc.settings_manager import LaujucSettings, SettingsManager
 LOGGER = logging.getLogger(__name__)
 
 ACCENT = "#0080FF"
+ACCENT_HOVER = "#0066CC"
 BACKGROUND = "#0A0A0C"
 SURFACE = "#14161A"
 TEXT = "#E6E6E6"
+LIGHT_BACKGROUND = "#F5F7FA"
+LIGHT_SURFACE = "#FFFFFF"
+LIGHT_TEXT = "#202124"
+
+
+class AnimatedButton(QtWidgets.QPushButton):
+    def __init__(self, label: str) -> None:
+        super().__init__(label)
+        self._bg_color = QtGui.QColor(ACCENT)
+        self._target_color = QtGui.QColor(ACCENT)
+        self._animation = QtCore.QPropertyAnimation(self, b"bgColor")
+        self._animation.setDuration(140)
+        self._animation.setEasingCurve(QtCore.QEasingCurve.InOutQuad)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
+        self.setMinimumHeight(36)
+
+    def enterEvent(self, event: QtCore.QEvent) -> None:
+        self._animate_to(QtGui.QColor(ACCENT_HOVER))
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: QtCore.QEvent) -> None:
+        self._animate_to(QtGui.QColor(ACCENT))
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
+        self._animate_to(QtGui.QColor("#0057B3"))
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
+        target = QtGui.QColor(ACCENT_HOVER if self.underMouse() else ACCENT)
+        self._animate_to(target)
+        super().mouseReleaseEvent(event)
+
+    def _animate_to(self, color: QtGui.QColor) -> None:
+        if self._target_color == color:
+            return
+        self._target_color = color
+        self._animation.stop()
+        self._animation.setStartValue(self._bg_color)
+        self._animation.setEndValue(color)
+        self._animation.start()
+
+    def paintEvent(self, event: QtGui.QPaintEvent) -> None:
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        rect = self.rect().adjusted(1, 1, -1, -1)
+        painter.setBrush(QtGui.QBrush(self._bg_color))
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.drawRoundedRect(rect, 10, 10)
+        painter.setPen(QtGui.QColor("white"))
+        painter.drawText(rect, QtCore.Qt.AlignCenter, self.text())
+
+    def get_bg_color(self) -> QtGui.QColor:
+        return self._bg_color
+
+    def set_bg_color(self, color: QtGui.QColor) -> None:
+        self._bg_color = color
+        self.update()
+
+    bgColor = QtCore.Property(QtGui.QColor, get_bg_color, set_bg_color)
+
+
+class NotificationBar(QtWidgets.QFrame):
+    def __init__(self) -> None:
+        super().__init__()
+        self.setObjectName("notificationBar")
+        layout = QtWidgets.QHBoxLayout(self)
+        layout.setContentsMargins(12, 6, 12, 6)
+        self.icon = QtWidgets.QLabel("●")
+        self.label = QtWidgets.QLabel("")
+        layout.addWidget(self.icon)
+        layout.addWidget(self.label)
+        self.setVisible(False)
+
+    def show_message(self, text: str, success: bool = True) -> None:
+        self.label.setText(text)
+        self.icon.setStyleSheet(f"color: {'#35c759' if success else '#ff453a'};")
+        self.setVisible(True)
+
+    def clear(self) -> None:
+        self.setVisible(False)
 
 
 class TitleBar(QtWidgets.QFrame):
@@ -84,6 +166,130 @@ class StatusPill(QtWidgets.QFrame):
         )
 
 
+class LauncherWindow(QtWidgets.QWidget):
+    authenticated = QtCore.Signal()
+
+    def __init__(self, settings: LaujucSettings, manager: SettingsManager) -> None:
+        super().__init__()
+        self.settings = settings
+        self.manager = manager
+        self.setWindowTitle("laujuc launcher")
+        self.setWindowFlags(
+            QtCore.Qt.WindowType.FramelessWindowHint
+            | QtCore.Qt.WindowType.WindowSystemMenuHint
+        )
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setFixedSize(520, 360)
+        self._setup_ui()
+        self._prepare_keys()
+        self._update_activation_timer()
+
+    def _setup_ui(self) -> None:
+        outer_layout = QtWidgets.QVBoxLayout(self)
+        outer_layout.setContentsMargins(18, 18, 18, 18)
+
+        container = QtWidgets.QFrame()
+        container.setObjectName("launcherContainer")
+        layout = QtWidgets.QVBoxLayout(container)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        title = QtWidgets.QLabel("laujuc launcher")
+        title.setObjectName("launcherTitle")
+        subtitle = QtWidgets.QLabel(
+            "Введите ключ активации для доступа к инструментам тестирования."
+        )
+        subtitle.setWordWrap(True)
+        layout.addWidget(title)
+        layout.addWidget(subtitle)
+
+        self.key_input = QtWidgets.QLineEdit()
+        self.key_input.setPlaceholderText("Ключ активации")
+        layout.addWidget(self.key_input)
+
+        self.validation_label = QtWidgets.QLabel("Ключ не проверен")
+        self.validation_label.setObjectName("validationLabel")
+        layout.addWidget(self.validation_label)
+
+        button_row = QtWidgets.QHBoxLayout()
+        self.auth_button = AnimatedButton("Активировать")
+        self.copy_button = QtWidgets.QPushButton("Скопировать ключ")
+        self.generate_button = QtWidgets.QPushButton("Сгенерировать новый")
+        button_row.addWidget(self.auth_button)
+        button_row.addWidget(self.copy_button)
+        button_row.addWidget(self.generate_button)
+        layout.addLayout(button_row)
+
+        self.timer_label = QtWidgets.QLabel("Сессия: 00:00:00")
+        layout.addWidget(self.timer_label)
+
+        self.notification = NotificationBar()
+        layout.addWidget(self.notification)
+
+        outer_layout.addWidget(container)
+
+        self.auth_button.clicked.connect(self._attempt_auth)
+        self.copy_button.clicked.connect(self._copy_key)
+        self.generate_button.clicked.connect(self._generate_new_key)
+
+        self._timer = QtCore.QTimer(self)
+        self._timer.timeout.connect(self._update_activation_timer)
+        self._timer.start(1000)
+
+    def _prepare_keys(self) -> None:
+        if not self.settings.known_keys:
+            self.manager.generate_one_time_key(self.settings)
+            self.manager.save(self.settings)
+        self.key_input.setText(self.settings.activation_key)
+
+    def _attempt_auth(self) -> None:
+        key = self.key_input.text().strip()
+        if not key:
+            self._set_validation(False, "Введите ключ.")
+            LOGGER.warning("Activation attempt without key.")
+            return
+        if self.manager.activate_key(self.settings, key):
+            self.manager.save(self.settings)
+            self._set_validation(True, "Ключ принят.")
+            self.notification.show_message("Активация прошла успешно.", True)
+            LOGGER.info("Activation success.")
+            self.authenticated.emit()
+        else:
+            self._set_validation(False, "Неверный ключ.")
+            self.notification.show_message("Ошибка активации.", False)
+            LOGGER.warning("Activation failed.")
+
+    def _copy_key(self) -> None:
+        QtWidgets.QApplication.clipboard().setText(self.settings.activation_key)
+        self.notification.show_message("Ключ скопирован.", True)
+
+    def _generate_new_key(self) -> None:
+        self.manager.generate_one_time_key(self.settings)
+        self.manager.save(self.settings)
+        self.key_input.setText(self.settings.activation_key)
+        self.notification.show_message("Новый ключ создан.", True)
+
+    def _set_validation(self, valid: bool, message: str) -> None:
+        color = "#35c759" if valid else "#ff453a"
+        self.validation_label.setText(message)
+        self.validation_label.setStyleSheet(f"color: {color};")
+
+    def _update_activation_timer(self) -> None:
+        if not self.settings.activation_valid_until:
+            self.timer_label.setText("Сессия: 00:00:00")
+            return
+        expires_at = QtCore.QDateTime.fromString(
+            self.settings.activation_valid_until, QtCore.Qt.ISODate
+        )
+        if not expires_at.isValid():
+            self.timer_label.setText("Сессия: 00:00:00")
+            return
+        remaining = QtCore.QDateTime.currentDateTimeUtc().secsTo(expires_at)
+        remaining = max(0, remaining)
+        hours = remaining // 3600
+        minutes = (remaining % 3600) // 60
+        seconds = remaining % 60
+        self.timer_label.setText(f"Сессия: {hours:02d}:{minutes:02d}:{seconds:02d}")
 class LaujucWindow(QtWidgets.QWidget):
     def __init__(self) -> None:
         super().__init__()
@@ -127,6 +333,7 @@ class LaujucWindow(QtWidgets.QWidget):
         content = QtWidgets.QFrame()
         content_layout = QtWidgets.QVBoxLayout(content)
         content_layout.setContentsMargins(24, 16, 24, 24)
+        content_layout.setSpacing(16)
 
         header_layout = QtWidgets.QHBoxLayout()
         header_label = QtWidgets.QLabel("Input Automation Framework")
@@ -153,10 +360,15 @@ class LaujucWindow(QtWidgets.QWidget):
         self._tab_animation.setStartValue(0.6)
         self._tab_animation.setEndValue(1.0)
 
+        self.notification_bar = NotificationBar()
+        content_layout.addWidget(self.notification_bar)
+
         footer_layout = QtWidgets.QHBoxLayout()
         self.session_timer_label = QtWidgets.QLabel("Session: 00:00:00")
+        self.activation_timer_label = QtWidgets.QLabel("Activation: 00:00:00")
         self.click_counter_label = QtWidgets.QLabel("Clicks: 0")
         footer_layout.addWidget(self.session_timer_label)
+        footer_layout.addWidget(self.activation_timer_label)
         footer_layout.addStretch()
         footer_layout.addWidget(self.click_counter_label)
         content_layout.addLayout(footer_layout)
@@ -189,9 +401,9 @@ class LaujucWindow(QtWidgets.QWidget):
         layout.addWidget(info)
 
         controls = QtWidgets.QHBoxLayout()
-        self.record_button = QtWidgets.QPushButton("Запись")
-        self.play_button = QtWidgets.QPushButton("Воспроизвести")
-        self.export_button = QtWidgets.QPushButton("Экспорт в Selenium")
+        self.record_button = AnimatedButton("Запись")
+        self.play_button = AnimatedButton("Воспроизвести")
+        self.export_button = AnimatedButton("Экспорт в Selenium")
         controls.addWidget(self.record_button)
         controls.addWidget(self.play_button)
         controls.addWidget(self.export_button)
@@ -221,8 +433,8 @@ class LaujucWindow(QtWidgets.QWidget):
         layout.addWidget(info)
 
         actions = QtWidgets.QHBoxLayout()
-        self.profile_start_button = QtWidgets.QPushButton("Старт профиля")
-        self.profile_stop_button = QtWidgets.QPushButton("Стоп профиля")
+        self.profile_start_button = AnimatedButton("Старт профиля")
+        self.profile_stop_button = AnimatedButton("Стоп профиля")
         actions.addWidget(self.profile_start_button)
         actions.addWidget(self.profile_stop_button)
         actions.addStretch()
@@ -293,7 +505,7 @@ class LaujucWindow(QtWidgets.QWidget):
         layout.addLayout(sound_layout)
 
         export_layout = QtWidgets.QHBoxLayout()
-        self.save_button = QtWidgets.QPushButton("Сохранить")
+        self.save_button = AnimatedButton("Сохранить")
         self.export_json_button = QtWidgets.QPushButton("Экспорт JSON")
         self.export_xml_button = QtWidgets.QPushButton("Экспорт XML")
         export_layout.addWidget(self.save_button)
@@ -302,9 +514,33 @@ class LaujucWindow(QtWidgets.QWidget):
         export_layout.addStretch()
         layout.addLayout(export_layout)
 
+        auth_layout = QtWidgets.QHBoxLayout()
+        self.auth_toggle = QtWidgets.QCheckBox("Требовать активацию при запуске")
+        auth_layout.addWidget(self.auth_toggle)
+        auth_layout.addStretch()
+        layout.addLayout(auth_layout)
+
+        theme_layout = QtWidgets.QHBoxLayout()
+        theme_layout.addWidget(QtWidgets.QLabel("Тема"))
+        self.theme_combo = QtWidgets.QComboBox()
+        self.theme_combo.addItems(["dark", "light"])
+        theme_layout.addWidget(self.theme_combo)
+        theme_layout.addStretch()
+        layout.addLayout(theme_layout)
+
+        key_layout = QtWidgets.QHBoxLayout()
+        self.export_keys_button = QtWidgets.QPushButton("Экспорт ключей")
+        self.import_keys_button = QtWidgets.QPushButton("Импорт ключей")
+        key_layout.addWidget(self.export_keys_button)
+        key_layout.addWidget(self.import_keys_button)
+        key_layout.addStretch()
+        layout.addLayout(key_layout)
+
         self.save_button.clicked.connect(self._save_settings)
         self.export_json_button.clicked.connect(self._export_json)
         self.export_xml_button.clicked.connect(self._export_xml)
+        self.export_keys_button.clicked.connect(self._export_keys)
+        self.import_keys_button.clicked.connect(self._import_keys)
 
         return widget
 
@@ -331,6 +567,8 @@ class LaujucWindow(QtWidgets.QWidget):
         self.right_button_toggle.setChecked(self.settings.right_button_enabled)
         self.middle_button_toggle.setChecked(self.settings.middle_button_enabled)
         self.sound_toggle.setChecked(self.settings.play_sound)
+        self.auth_toggle.setChecked(self.settings.auth_enabled)
+        self.theme_combo.setCurrentText(self.settings.theme)
 
     def _sync_mode_toggles(self) -> None:
         sender = self.sender()
@@ -367,21 +605,50 @@ class LaujucWindow(QtWidgets.QWidget):
             self.raise_()
 
     def _save_settings(self) -> None:
-        self.settings = self._collect_settings()
+        settings = self._collect_settings()
+        if not self._validate_settings(settings):
+            return
+        self.settings = settings
         self.settings_manager.save(self.settings)
         self.status_pill.set_active(True)
+        self._show_notification("Настройки сохранены.", True)
+        apply_theme(QtWidgets.QApplication.instance(), self.settings.theme)
+        self.toggle_shortcut.setKey(QtGui.QKeySequence(self.settings.hotkey_toggle))
 
     def _export_json(self) -> None:
         path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Export JSON", "laujuc.json")
         if path:
             settings = self._collect_settings()
+            if not self._validate_settings(settings):
+                return
             Path(path).write_text(json_dump(asdict(settings)), encoding="utf-8")
+            self._show_notification("Настройки экспортированы в JSON.", True)
 
     def _export_xml(self) -> None:
         path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Export XML", "laujuc.xml")
         if path:
             settings = self._collect_settings()
+            if not self._validate_settings(settings):
+                return
             self.settings_manager.export_xml(settings, Path(path))
+            self._show_notification("Настройки экспортированы в XML.", True)
+
+    def _export_keys(self) -> None:
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export Keys", "laujuc_keys.json"
+        )
+        if path:
+            self.settings_manager.export_keys(self.settings, Path(path))
+            self._show_notification("Ключи экспортированы.", True)
+
+    def _import_keys(self) -> None:
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Import Keys", "", "JSON Files (*.json)"
+        )
+        if path:
+            self.settings_manager.import_keys(self.settings, Path(path))
+            self.settings_manager.save(self.settings)
+            self._show_notification("Ключи импортированы.", True)
 
     def _handle_close(self) -> None:
         self.hide()
@@ -391,6 +658,7 @@ class LaujucWindow(QtWidgets.QWidget):
             QtWidgets.QSystemTrayIcon.MessageIcon.Information,
             2000,
         )
+        self._show_notification("Приложение свернуто в трей.", True)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         event.ignore()
@@ -400,9 +668,11 @@ class LaujucWindow(QtWidgets.QWidget):
         if self.record_button.text() == "Запись":
             self.record_button.setText("Стоп")
             self.status_pill.set_active(True)
+            self._show_notification("Запись начата.", True)
         else:
             self.record_button.setText("Запись")
             self.status_pill.set_active(False)
+            self._show_notification("Запись остановлена.", True)
 
     def _play_selected_scenario(self) -> None:
         scenario = AutomationScenario(name="Demo")
@@ -413,6 +683,7 @@ class LaujucWindow(QtWidgets.QWidget):
         scenario.play(self.input_core)
         self._click_count += 1
         self.click_counter_label.setText(f"Clicks: {self._click_count}")
+        self._show_notification("Сценарий воспроизведен.", True)
 
     def _export_selected_scenario(self) -> None:
         scenario = AutomationScenario(name="Demo")
@@ -423,10 +694,12 @@ class LaujucWindow(QtWidgets.QWidget):
         dialog.setText("Скрипт экспортирован:")
         dialog.setDetailedText(script)
         dialog.exec()
+        self._show_notification("Скрипт Selenium подготовлен.", True)
 
     def _start_profile(self) -> None:
         self.profiler.start("Session profile")
         self.profile_output.append("Профилирование запущено...")
+        self._show_notification("Профилирование запущено.", True)
 
     def _stop_profile(self) -> None:
         profile = self.profiler.stop()
@@ -435,12 +708,14 @@ class LaujucWindow(QtWidgets.QWidget):
             return
         summary = profile.summary()
         self.profile_output.append(f"Summary: {summary}")
+        self._show_notification("Профилирование завершено.", True)
 
     def _tick_session(self) -> None:
         self._session_seconds += 1
         hours, remainder = divmod(self._session_seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
         self.session_timer_label.setText(f"Session: {hours:02d}:{minutes:02d}:{seconds:02d}")
+        self._update_activation_timer()
 
     def _animate_tabs(self) -> None:
         self._tab_animation.stop()
@@ -456,6 +731,44 @@ class LaujucWindow(QtWidgets.QWidget):
             right_button_enabled=self.right_button_toggle.isChecked(),
             middle_button_enabled=self.middle_button_toggle.isChecked(),
             play_sound=self.sound_toggle.isChecked(),
+            auth_enabled=self.auth_toggle.isChecked(),
+            activation_key=self.settings.activation_key,
+            activation_valid_until=self.settings.activation_valid_until,
+            known_keys=self.settings.known_keys,
+            theme=self.theme_combo.currentText(),
+            activation_session_minutes=self.settings.activation_session_minutes,
+        )
+
+    def _validate_settings(self, settings: LaujucSettings) -> bool:
+        if not settings.hotkey_toggle:
+            self._show_notification("Горячая клавиша не задана.", False)
+            return False
+        if not (1 <= settings.cps <= 100):
+            self._show_notification("CPS должен быть от 1 до 100.", False)
+            return False
+        return True
+
+    def _show_notification(self, message: str, success: bool) -> None:
+        self.notification_bar.show_message(message, success)
+        QtCore.QTimer.singleShot(2400, self.notification_bar.clear)
+
+    def _update_activation_timer(self) -> None:
+        if not self.settings.activation_valid_until:
+            self.activation_timer_label.setText("Activation: 00:00:00")
+            return
+        expires_at = QtCore.QDateTime.fromString(
+            self.settings.activation_valid_until, QtCore.Qt.ISODate
+        )
+        if not expires_at.isValid():
+            self.activation_timer_label.setText("Activation: 00:00:00")
+            return
+        remaining = QtCore.QDateTime.currentDateTimeUtc().secsTo(expires_at)
+        remaining = max(0, remaining)
+        hours = remaining // 3600
+        minutes = (remaining % 3600) // 60
+        seconds = remaining % 60
+        self.activation_timer_label.setText(
+            f"Activation: {hours:02d}:{minutes:02d}:{seconds:02d}"
         )
 
 
@@ -465,40 +778,44 @@ def json_dump(data: dict) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False)
 
 
-def apply_theme(app: QtWidgets.QApplication) -> None:
+def apply_theme(app: QtWidgets.QApplication, theme: str = "dark") -> None:
+    dark_mode = theme != "light"
+    bg = BACKGROUND if dark_mode else LIGHT_BACKGROUND
+    surface = SURFACE if dark_mode else LIGHT_SURFACE
+    text = TEXT if dark_mode else LIGHT_TEXT
     palette = QtGui.QPalette()
-    palette.setColor(QtGui.QPalette.Window, QtGui.QColor(BACKGROUND))
-    palette.setColor(QtGui.QPalette.WindowText, QtGui.QColor(TEXT))
-    palette.setColor(QtGui.QPalette.Base, QtGui.QColor(SURFACE))
-    palette.setColor(QtGui.QPalette.Text, QtGui.QColor(TEXT))
-    palette.setColor(QtGui.QPalette.Button, QtGui.QColor(SURFACE))
-    palette.setColor(QtGui.QPalette.ButtonText, QtGui.QColor(TEXT))
+    palette.setColor(QtGui.QPalette.Window, QtGui.QColor(bg))
+    palette.setColor(QtGui.QPalette.WindowText, QtGui.QColor(text))
+    palette.setColor(QtGui.QPalette.Base, QtGui.QColor(surface))
+    palette.setColor(QtGui.QPalette.Text, QtGui.QColor(text))
+    palette.setColor(QtGui.QPalette.Button, QtGui.QColor(surface))
+    palette.setColor(QtGui.QPalette.ButtonText, QtGui.QColor(text))
     palette.setColor(QtGui.QPalette.Highlight, QtGui.QColor(ACCENT))
     app.setPalette(palette)
 
     app.setStyleSheet(
         f"""
         #mainContainer {{
-            background-color: {BACKGROUND};
+            background-color: {bg};
             border-radius: 16px;
         }}
         #titleBar {{
-            background-color: {SURFACE};
+            background-color: {surface};
             border-top-left-radius: 16px;
             border-top-right-radius: 16px;
         }}
         #titleLabel {{
-            color: {TEXT};
+            color: {text};
             font-size: 18px;
             font-weight: 600;
         }}
         #headerLabel {{
             font-size: 20px;
             font-weight: 600;
-            color: {TEXT};
+            color: {text};
         }}
         #minimizeButton, #closeButton {{
-            color: {TEXT};
+            color: {text};
             font-size: 18px;
             padding: 4px 12px;
             border-radius: 10px;
@@ -507,10 +824,33 @@ def apply_theme(app: QtWidgets.QApplication) -> None:
         #minimizeButton:hover, #closeButton:hover {{
             background-color: rgba(0, 128, 255, 0.2);
         }}
+        #minimizeButton:pressed, #closeButton:pressed {{
+            background-color: rgba(0, 128, 255, 0.35);
+        }}
         #statusPill {{
-            background-color: {SURFACE};
+            background-color: {surface};
             border-radius: 14px;
-            color: {TEXT};
+            color: {text};
+            border: 1px solid rgba(0, 128, 255, 0.25);
+        }}
+        #notificationBar {{
+            background-color: {surface};
+            border-radius: 10px;
+            border: 1px solid rgba(0, 128, 255, 0.25);
+            color: {text};
+        }}
+        #launcherContainer {{
+            background-color: {bg};
+            border-radius: 18px;
+            border: 1px solid rgba(0, 128, 255, 0.2);
+        }}
+        #launcherTitle {{
+            font-size: 22px;
+            font-weight: 600;
+            color: {text};
+        }}
+        #validationLabel {{
+            font-weight: 600;
         }}
         QTabWidget::pane {{
             border: 1px solid rgba(0, 128, 255, 0.2);
@@ -518,27 +858,35 @@ def apply_theme(app: QtWidgets.QApplication) -> None:
             padding: 8px;
         }}
         QTabBar::tab {{
-            background: {SURFACE};
+            background: {surface};
             padding: 8px 18px;
             border-top-left-radius: 10px;
             border-top-right-radius: 10px;
             margin-right: 4px;
         }}
         QTabBar::tab:selected {{
-            background: rgba(0, 128, 255, 0.2);
+            background: rgba(0, 128, 255, 0.22);
+        }}
+        QTabBar::tab:hover {{
+            background: rgba(0, 128, 255, 0.16);
         }}
         QPushButton {{
-            background-color: {ACCENT};
-            color: white;
-            padding: 8px 16px;
+            background-color: transparent;
+            color: {text};
+            padding: 8px 14px;
             border-radius: 10px;
+            border: 1px solid rgba(0, 128, 255, 0.3);
         }}
         QPushButton:hover {{
-            background-color: #2d95ff;
+            border: 1px solid {ACCENT};
+            color: {ACCENT};
+        }}
+        QPushButton:pressed {{
+            background-color: rgba(0, 128, 255, 0.2);
         }}
         QSlider::groove:horizontal {{
             height: 6px;
-            background: #1f2228;
+            background: {'#1f2228' if dark_mode else '#d2d6df'};
             border-radius: 3px;
         }}
         QSlider::handle:horizontal {{
@@ -547,11 +895,18 @@ def apply_theme(app: QtWidgets.QApplication) -> None:
             margin: -5px 0;
             border-radius: 8px;
         }}
-        QLineEdit, QTextEdit, QTextBrowser, QComboBox {{
-            background-color: #101217;
+        QLineEdit, QTextEdit, QTextBrowser, QComboBox, QListWidget {{
+            background-color: {'#101217' if dark_mode else '#F0F2F5'};
             border: 1px solid rgba(0, 128, 255, 0.2);
             border-radius: 8px;
-            padding: 6px 8px;
+            padding: 6px 10px;
+            color: {text};
+        }}
+        QLineEdit:focus, QTextEdit:focus, QComboBox:focus {{
+            border: 1px solid {ACCENT};
+        }}
+        QComboBox::drop-down {{
+            border: none;
         }}
         QCheckBox {{
             spacing: 6px;

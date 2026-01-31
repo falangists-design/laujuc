@@ -19,6 +19,8 @@ profile, and run automation flows with a modern UI.
 ### Настройки
 - Configure CPS, hotkeys, and active buttons.
 - Export or import profiles in JSON/XML.
+- Toggle activation requirement and switch between dark/light themes.
+- Export/import activation keys for team onboarding.
 
 ### Документация
 - Embedded reference for API usage and developer notes.
@@ -27,3 +29,8 @@ profile, and run automation flows with a modern UI.
 - Hotkey-driven navigation for quick access.
 - High-contrast accent color for visual clarity.
 - Scenarios can be used to assist users with repetitive tasks.
+
+## Launcher & Activation
+- On first launch, laujuc generates a one-time activation key.
+- Enter the key in the launcher to unlock the main interface.
+- Session timer shows remaining activation time.

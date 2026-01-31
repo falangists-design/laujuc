@@ -28,3 +28,8 @@
 - `save(settings)` — persist JSON settings.
 - `export_xml(settings, target)` — export XML.
 - `import_xml(source)` — load XML into settings object.
+- `generate_one_time_key(settings)` — create a unique activation key.
+- `activate_key(settings, key)` — validate and start activation session.
+- `is_activation_valid(settings)` — check activation session timer.
+- `export_keys(settings, target)` — export activation keys.
+- `import_keys(settings, source)` — import activation keys.

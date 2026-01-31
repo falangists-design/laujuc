@@ -7,15 +7,31 @@ import sys
 
 from PySide6 import QtWidgets
 
-from laujuc.gui_layer import LaujucWindow, apply_theme
+from laujuc.gui_layer import LaujucWindow, LauncherWindow, apply_theme
+from laujuc.settings_manager import SettingsManager
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
     app = QtWidgets.QApplication(sys.argv)
-    apply_theme(app)
+    manager = SettingsManager()
+    settings = manager.load()
+    apply_theme(app, settings.theme)
+
     window = LaujucWindow()
-    window.show()
+
+    if settings.auth_enabled and not manager.is_activation_valid(settings):
+        launcher = LauncherWindow(settings, manager)
+
+        def show_main() -> None:
+            launcher.close()
+            window.show()
+
+        launcher.authenticated.connect(show_main)
+        launcher.show()
+    else:
+        window.show()
+
     sys.exit(app.exec())
 
 

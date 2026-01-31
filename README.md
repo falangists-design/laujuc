@@ -9,6 +9,7 @@ playback, profiling, and integrations with popular QA tooling.
 - Modular architecture: `input_core`, `settings_manager`, `gui_layer`.
 - Cross-platform UI built with PySide6.
 - Scenario recording & playback, profiling summaries, logging.
+- Launcher with activation key flow and theme switching.
 - JSON/XML configuration export/import.
 - Integrated developer documentation view inside the app.
 
