@@ -14,6 +14,7 @@ from laujuc.settings_manager import SettingsManager
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
     app = QtWidgets.QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     manager = SettingsManager()
     settings = manager.load()
     apply_theme(app, settings.theme)
@@ -24,8 +25,9 @@ def main() -> None:
         launcher = LauncherWindow(settings, manager)
 
         def show_main() -> None:
-            launcher.close()
             window.show()
+            launcher.close()
+            launcher.deleteLater()
 
         launcher.authenticated.connect(show_main)
         launcher.show()
