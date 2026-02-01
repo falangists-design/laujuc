@@ -19,19 +19,22 @@ def main() -> None:
     settings = manager.load()
     apply_theme(app, settings.theme)
 
-    window = LaujucWindow()
+    window: LaujucWindow | None = None
 
     if settings.auth_enabled and not manager.is_activation_valid(settings):
         launcher = LauncherWindow(settings, manager)
 
         def show_main() -> None:
-            window.show()
+            nonlocal window
             launcher.close()
             launcher.deleteLater()
+            window = LaujucWindow()
+            window.show()
 
         launcher.authenticated.connect(show_main)
         launcher.show()
     else:
+        window = LaujucWindow()
         window.show()
 
     sys.exit(app.exec())
